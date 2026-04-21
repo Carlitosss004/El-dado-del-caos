@@ -306,3 +306,7 @@ function Face({ num, faceClass }: { num: string; faceClass: string }) {
     </div>
   );
 }
+
+function useEffect(arg0: () => () => void, arg1: (number | boolean)[]) {
+  throw new Error("Function not implemented.");
+}
