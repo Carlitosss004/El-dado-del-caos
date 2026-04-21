@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/purity */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -36,6 +37,30 @@ export default function PartyApp() {
   const [retoTexto, setRetoTexto] = useState("");
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const [retoOculto, setRetoOculto] = useState(false);
+
+
+
+  // ESTADOS PARA EL TIMER (Hot Potato)
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [timerActive, setTimerActive] = useState(false);
+  const [exploto, setExploto] = useState(false);
+
+  // Lógica del Temporizador
+  useEffect(() => {
+    let interval: any;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && timerActive) {
+      setTimerActive(false);
+      setExploto(true);
+      if (window.navigator.vibrate) window.navigator.vibrate([500, 100, 500]);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft]);
+
+
 
   const cargarRetoAleatorio = async (archivo: string) => {
     try {
