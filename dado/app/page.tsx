@@ -1,10 +1,9 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable react-hooks/purity */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogBackdrop, DialogPanel } from "@headlessui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -19,6 +18,7 @@ import {
   SparklesIcon,
   BookOpenIcon,
   EyeIcon,
+  ClockIcon, // Icono para el timer
 } from "@heroicons/react/24/outline";
 
 const JUEGOS = [
@@ -37,9 +37,7 @@ export default function PartyApp() {
   const [retoTexto, setRetoTexto] = useState("");
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const [retoOculto, setRetoOculto] = useState(false);
-
-
-
+  
   // ESTADOS PARA EL TIMER (Hot Potato)
   const [timeLeft, setTimeLeft] = useState(15);
   const [timerActive, setTimerActive] = useState(false);
@@ -60,8 +58,6 @@ export default function PartyApp() {
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
 
-
-
   const cargarRetoAleatorio = async (archivo: string) => {
     try {
       const res = await fetch(`/desafios/${archivo}`);
@@ -79,6 +75,8 @@ export default function PartyApp() {
     setGirando(true);
     setResultado(null);
     setRetoOculto(false);
+    setExploto(false);
+    setTimeLeft(15);
 
     const azarIndex = Math.floor(Math.random() * JUEGOS.length);
     const categoria = JUEGOS[azarIndex];
@@ -96,9 +94,8 @@ export default function PartyApp() {
       setResultado(categoria);
       setRetoTexto(texto);
       
-      if (categoria.id === 3) {
-        setRetoOculto(true);
-      }
+      if (categoria.id === 3) setRetoOculto(true);
+      if (categoria.id === 2) setTimerActive(true); // Activa timer si es Hot Potato
       
       setGirando(false);
       if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
@@ -106,15 +103,17 @@ export default function PartyApp() {
   };
 
   const seleccionarDirecto = async (item: any) => {
+    setExploto(false);
+    setTimeLeft(15);
     const texto = await cargarRetoAleatorio(item.file);
     setResultado(item);
     setRetoTexto(texto);
     
-    if (item.id === 3) {
-      setRetoOculto(true);
-    } else {
-      setRetoOculto(false);
-    }
+    if (item.id === 3) setRetoOculto(true);
+    else setRetoOculto(false);
+
+    if (item.id === 2) setTimerActive(true);
+    else setTimerActive(false);
     
     setSidebarOpen(false);
   };
@@ -204,7 +203,6 @@ export default function PartyApp() {
                   className="flex flex-col items-center"
                 >
                   <div className="perspective-1000 py-12 touch-none cursor-pointer" onClick={tirarDado}>
-                    {/* Forzamos el preserve-3d en el style inline del motion.div para evitar que Framer lo sobrescriba */}
                     <motion.div
                       animate={{ rotateX: rotation.x, rotateY: rotation.y }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
@@ -230,22 +228,41 @@ export default function PartyApp() {
                 <motion.div
                   key="resultado"
                   initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                  className="w-full bg-zinc-900/80 backdrop-blur-md border border-white/10 p-8 rounded-[2.5rem] text-center shadow-2xl z-10"
+                  className={`w-full bg-zinc-900/80 backdrop-blur-md border ${exploto ? 'border-red-500 shadow-red-500/50' : 'border-white/10'} p-8 rounded-[2.5rem] text-center shadow-2xl z-10 transition-colors duration-500`}
                 >
-                  <div className={`w-16 h-16 ${resultado.color} rounded-full mx-auto flex items-center justify-center text-3xl mb-4 shadow-lg`}>
-                    {resultado.emoji}
+                  <div className={`w-16 h-16 ${exploto ? 'bg-red-600 animate-ping' : resultado.color} rounded-full mx-auto flex items-center justify-center text-3xl mb-4 shadow-lg`}>
+                    {exploto ? "💥" : resultado.emoji}
                   </div>
-                  <h3 className="text-zinc-500 font-black uppercase tracking-widest text-[10px] mb-2">{resultado.name}</h3>
                   
-                  {retoOculto ? (
+                  <h3 className={`font-black uppercase tracking-widest text-[10px] mb-2 ${exploto ? 'text-red-500' : 'text-zinc-500'}`}>
+                    {exploto ? "¡BOOM! CASTIGO" : resultado.name}
+                  </h3>
+                  
+                  {/* TIMER VISUAL (Solo Hot Potato) */}
+                  {resultado.id === 2 && !exploto && timerActive && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <ClockIcon className="size-5 text-red-500" />
+                        <span className="font-mono text-2xl font-black text-red-500">{timeLeft}s</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: "100%" }}
+                          animate={{ width: `${(timeLeft / 15) * 100}%` }}
+                          className="h-full bg-red-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {exploto ? (
+                    <p className="text-xl font-black text-red-500 mb-8 uppercase italic animate-bounce">
+                      ¡Demasiado lento! Bebes 3 tragos o chupito directo.
+                    </p>
+                  ) : retoOculto ? (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 mb-4">
-                      <p className="text-zinc-400 text-sm mb-8 leading-relaxed px-4">
-                        ¡Shhh! Asegúrate de que nadie más esté mirando tu pantalla antes de destapar tu misión.
-                      </p>
-                      <button
-                        onClick={() => setRetoOculto(false)}
-                        className={`w-full py-4 flex items-center justify-center gap-2 ${resultado.color} text-white rounded-2xl font-black uppercase text-sm active:scale-95 transition-transform shadow-lg`}
-                      >
+                      <p className="text-zinc-400 text-sm mb-8 px-4 leading-relaxed">¡Shhh! Asegúrate de que nadie mire antes de destapar la misión.</p>
+                      <button onClick={() => setRetoOculto(false)} className={`w-full py-4 flex items-center justify-center gap-2 ${resultado.color} text-white rounded-2xl font-black uppercase text-sm active:scale-95 transition-transform shadow-lg`}>
                         <EyeIcon className="size-5" /> Revelar Misión
                       </button>
                     </motion.div>
@@ -253,10 +270,13 @@ export default function PartyApp() {
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
                       <p className="text-xl md:text-2xl font-bold text-white mb-8 italic leading-tight">"{retoTexto}"</p>
                       <button
-                        onClick={() => setResultado(null)}
+                        onClick={() => {
+                          setResultado(null);
+                          setTimerActive(false);
+                        }}
                         className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-sm active:scale-95 transition-transform shadow-lg"
                       >
-                        {resultado.id === 3 ? "¡Ocultar y seguir!" : "Volver a lanzar"}
+                        {resultado.id === 2 ? "¡HECHO! PASAR" : "Volver a lanzar"}
                       </button>
                     </motion.div>
                   )}
@@ -268,20 +288,13 @@ export default function PartyApp() {
       </div>
 
       <style jsx>{`
-        .perspective-1000 { 
-          perspective: 1000px; 
-        }
-        
-        /* Ajustes precisos y estáticos para las caras del cubo */
-        /* MÓVIL (w-24 = 96px => centro en 48px) */
+        .perspective-1000 { perspective: 1000px; }
         .face-front  { transform: rotateY(0deg) translateZ(48px); }
         .face-back   { transform: rotateY(180deg) translateZ(48px); }
         .face-right  { transform: rotateY(90deg) translateZ(48px); }
         .face-left   { transform: rotateY(-90deg) translateZ(48px); }
         .face-top    { transform: rotateX(90deg) translateZ(48px); }
         .face-bottom { transform: rotateX(-90deg) translateZ(48px); }
-
-        /* ESCRITORIO (w-32 = 128px => centro en 64px) */
         @media (min-width: 768px) {
           .face-front  { transform: rotateY(0deg) translateZ(64px); }
           .face-back   { transform: rotateY(180deg) translateZ(64px); }
@@ -295,18 +308,10 @@ export default function PartyApp() {
   );
 }
 
-// Actualizamos el componente Face para que reciba la clase específica
 function Face({ num, faceClass }: { num: string; faceClass: string }) {
   return (
-    <div
-      className={`absolute inset-0 bg-zinc-900 border-2 border-pink-500/50 flex items-center justify-center text-white text-3xl font-black rounded-xl shadow-[inset_0_0_15px_rgba(236,72,153,0.3)] ${faceClass}`}
-      style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-    >
+    <div className={`absolute inset-0 bg-zinc-900 border-2 border-pink-500/50 flex items-center justify-center text-white text-3xl font-black rounded-xl shadow-[inset_0_0_15px_rgba(236,72,153,0.3)] ${faceClass}`} style={{ backfaceVisibility: "hidden" }}>
       {num}
     </div>
   );
-}
-
-function useEffect(arg0: () => () => void, arg1: (number | boolean)[]) {
-  throw new Error("Function not implemented.");
 }
